@@ -1,0 +1,40 @@
+version: "3"
+services:
+  typecho:
+    image: joyqi/typecho:1.2.1-php8.0-apache
+    container_name: typecho-server
+    restart: always
+    depends_on: 
+      - mariadb
+    networks: 
+      - typecho-network
+    ports:
+      - 8080:80
+    volumes:
+      - /path/to/typecho-data:/app/usr
+    environment:
+      - TYPECHO_INSTALL=1
+      - TYPECHO_SITE_URL=${TYPECHO_SITE_URL}
+      - TYPECHO_DB_HOST=maraidb
+      - TYPECHO_DB_PORT=3306
+      - TYPECHO_DB_DATABASE=${MARIADB_TYPECHO_DATABASE}
+      - TYPECHO_DB_USER=${MARIADB_TYPECHO_USER}
+      - TYPECHO_DB_PASSWORD=${MARIADB_TYPECHO_PASSWORD}
+    
+  mariadb:
+    image: mariadb
+    container_name: "typecho-db"
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: 
+      MARIADB_DATABASE: ${MARIADB_TYPECHO_DATABASE}
+      MARIADB_USER: ${MARIADB_TYPECHO_USER}
+      MARIADB_PASSWORD: ${MARIADB_TYPECHO_PASSWORD}
+    networks: 
+      - typecho-network
+    volumes:
+      - /path/to/typecho-db:/var/lib/mysql
+
+networks:
+  typecho-network:
+    driver: bridge

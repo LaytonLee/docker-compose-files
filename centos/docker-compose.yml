@@ -1,0 +1,10 @@
+version: "3"
+services:
+  centos:
+    image: centos:centos7.5.1804
+    container_name: "centos7"
+    stdin_open: true  # docker run -i
+    tty: true  # docker run -t
+    restart: "always"
+    ports:
+      - "15222:22"

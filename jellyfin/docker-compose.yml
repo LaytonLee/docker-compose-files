@@ -1,0 +1,15 @@
+version: "3"
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    network_mode: "host"
+    volumes:
+      - /path/to/jellyfin-config:/config
+      - /path/to/jellyfin-cache:/cache
+      - /path/to/media1:/media
+      - /path/to/media2:/media2:ro
+    restart: "always"
+    # Optional - alternative address used for autodiscovery
+    environment:
+      - JELLYFIN_PublishedServerUrl=http://jellyfin.example.com

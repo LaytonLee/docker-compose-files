@@ -1,0 +1,32 @@
+version: "3"
+services:
+  navidrome:
+    image: deluan/navidrome:latest
+    ports:
+      - "4533:4533"
+    environment:
+      ND_SCANSCHEDULE: 1m
+      ND_LASTFM_ENABLED: true
+      ND_LASTFM_APIKEY: 
+      ND_LASTFM_SECRET:   
+      # ND_SPOTIFY_ID:   
+      # ND_SPOTIFY_SECRET: 
+      ND_LASTFM_LANGUAGE: zh
+      ND_LOGLEVEL: info
+      ND_SESSIONTIMEOUT: 24h
+      ND_BASEURL: ""
+    volumes:
+      - "/path/to/navidrome-data:/data"
+      - "/path/to/music:/music:ro"
+
+  miniserve:
+    image: svenstaro/miniserve:latest
+    container_name: navidrome-upload-server
+    depends_on:
+      - navidrome
+    ports:
+      - "8080:8080"
+    volumes:
+      - "/path/to/music:/downloads"
+    command: "-r -z -u -q -p 8080 -a username:password /downloads"  # username:password change it to your username and password
+    restart: unless-stopped
