@@ -1,9 +1,9 @@
-version: '3'
+version: '3.5'
 services:
   photoprism:
     image: photoprism/photoprism:latest
     container_name: photoprism
-    # restart: always
+    # restart: unless-stopped
     stop_grace_period: 10s
     depends_on:
       - mariadb
@@ -11,7 +11,7 @@ services:
       - seccomp:unconfined
       - apparmor:unconfined
     ## Run as a non-root user (see https://docs.docker.com/engine/reference/run/#user)
-    user: "1000:1000"
+    # user: "1000:1000"
     ports:
       - "2342:2342"
     environment:
@@ -23,7 +23,7 @@ services:
       PHOTOPRISM_DEFAULT_TLS: "true"
       PHOTOPRISM_ORIGINALS_LIMIT: 5000
       PHOTOPRISM_HTTP_COMPRESSION: "gzip"
-      PHOTOPRISM_LOG_LEVEL: "info"
+      PHOTOPRISM_LOG_LEVEL: ${PHOTOPRISM_LOG_LEVEL}
       PHOTOPRISM_READONLY: "false"
       PHOTOPRISM_EXPERIMENTAL: "false"
       PHOTOPRISM_DISABLE_CHOWN: "false"
@@ -35,11 +35,17 @@ services:
       PHOTOPRISM_DISABLE_VECTORS: "false"
       PHOTOPRISM_DISABLE_RAW: "false"
       PHOTOPRISM_RAW_PRESETS: "false"
-      PHOTOPRISM_JPEG_QUALITY: 85
+      PHOTOPRISM_SIDECAR_YAML: "true"                # creates YAML sidecar files to back up picture metadata
+      PHOTOPRISM_BACKUP_ALBUMS: "true"               # creates YAML files to back up album metadata
+      PHOTOPRISM_BACKUP_DATABASE: "true"             # creates regular backups based on the configured schedule
+      PHOTOPRISM_BACKUP_SCHEDULE: "daily"            # backup SCHEDULE in cron format (e.g. "0 12 * * *" for daily at noon) or at a random time (daily, weekly)
+      PHOTOPRISM_INDEX_SCHEDULE: ""                  # indexing SCHEDULE in cron format (e.g. "@every 3h" for every 3 hours; "" to disable)
+      PHOTOPRISM_AUTO_INDEX: 300                     # delay before automatically indexing files in SECONDS when uploading via WebDAV (-1 to disable)
+      PHOTOPRISM_AUTO_IMPORT: -1                     # delay before automatically importing files in SECONDS when uploading via WebDAV (-1 to disable)
       PHOTOPRISM_DETECT_NSFW: "false"
       PHOTOPRISM_UPLOAD_NSFW: "true"
       PHOTOPRISM_DATABASE_DRIVER: "mysql"
-      PHOTOPRISM_DATABASE_SERVER: "mariadb:3306" # MariaDB or MySQL database server (hostname:port)
+      PHOTOPRISM_DATABASE_SERVER: "mariadb:3306"     # MariaDB or MySQL database server (hostname:port)
       PHOTOPRISM_DATABASE_NAME: "photoprism"
       PHOTOPRISM_DATABASE_USER: "photoprism"
       PHOTOPRISM_DATABASE_PASSWORD: ${DB_PASSWORD}
@@ -47,27 +53,28 @@ services:
       PHOTOPRISM_SITE_DESCRIPTION: "" # meta site description
       PHOTOPRISM_SITE_AUTHOR: "" # meta site author
       ## Video Transcoding (https://docs.photoprism.app/getting-started/advanced/transcoding/):
-      # PHOTOPRISM_FFMPEG_ENCODER: "software" # default: software
-      # PHOTOPRISM_FFMPEG_SIZE: "1920"               # video size limit in pixels (720-7680) (default: 3840)
-      # PHOTOPRISM_FFMPEG_BITRATE: "32"              # video bitrate limit in Mbit/s (default: 50)
+      PHOTOPRISM_FFMPEG_ENCODER: "software"        # default: software
+      PHOTOPRISM_FFMPEG_SIZE: "1920"               # video size limit in pixels (720-7680) (default: 3840)
+      PHOTOPRISM_FFMPEG_BITRATE: "32"              # video bitrate limit in Mbit/s (default: 50)
       ## Run/install on first startup (options: update https gpu tensorflow davfs clitools clean):
       # PHOTOPRISM_INIT: "https gpu tensorflow"
     working_dir: "/photoprism"
     volumes:
-      - "${PHOTOPRISM_ORIGINAL_FOLDER}:/photoprism/originals"
+      - "${PHOTOPRISM_DIR}/originals:/photoprism/originals"
       # - "/example/family:/photoprism/originals/family" # *Additional* media folders can be mounted like this
-      - "${PHOTOPRISM_IMPORT_FOLDER}:/photoprism/import"
-      - "${PHOTOPRISM_STORAGE}:/photoprism/storage"
+      - "${PHOTOPRISM_DIR}/import:/photoprism/import"
+      - "${PHOTOPRISM_DIR}/storage:/photoprism/storage"
 
   mariadb:
     image: mariadb:11
     container_name: photoprism-db
-    restart: always
+    restart: unless-stopped
     stop_grace_period: 5s
     security_opt:
       - seccomp:unconfined
       - apparmor:unconfined
-    command: mariadbd --innodb-buffer-pool-size=512M --transaction-isolation=READ-COMMITTED --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --max-connections=512 --innodb-rollback-on-timeout=OFF --innodb-lock-wait-timeout=120
+    ## MariaDB config flags, see https://mariadb.com/kb/en/server-system-variables/
+    command: mariadbd --innodb-buffer-pool-size=2G --transaction-isolation=READ-COMMITTED --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --max-connections=512 --innodb-rollback-on-timeout=OFF --innodb-lock-wait-timeout=120
     volumes:
       - "${DB_STORAGE}:/var/lib/mysql"
     environment:

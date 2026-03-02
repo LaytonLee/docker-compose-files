@@ -1,0 +1,132 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: photoprism-pod
+  annotations:
+    # AppArmor unconfined via annotation (Podman standard)
+    container.apparmor.security.beta.kubernetes.io/photoprism: unconfined
+    container.apparmor.security.beta.kubernetes.io/mariadb: unconfined
+spec:
+  terminationGracePeriodSeconds: 20
+  containers:
+    # --- MariaDB Database Container ---
+    - name: mariadb
+      image: docker.io/library/mariadb:11
+      securityContext:
+        seccompProfile:
+          type: Unconfined
+      ports:
+        - containerPort: 3306
+      envFrom:
+        - configMapRef:
+            name: mariadb-settings
+      env:
+        - name: MARIADB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: photoprism-secrets
+              key: DB_PASSWORD
+        - name: MARIADB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: photoprism-secrets
+              key: DB_ROOT_PASSWORD
+      args:
+        - "mariadbd"
+        - "--innodb-buffer-pool-size=2G"
+        - "--transaction-isolation=READ-COMMITTED"
+        - "--character-set-server=utf8mb4"
+        - "--collation-server=utf8mb4_unicode_ci"
+        - "--max-connections=512"
+        - "--innodb-rollback-on-timeout=OFF"
+        - "--innodb-lock-wait-timeout=120"
+      volumeMounts:
+        - name: mysql-data
+          mountPath: /var/lib/mysql
+
+    # --- PhotoPrism App Container ---
+    - name: photoprism
+      image: docker.io/photoprism/photoprism:latest
+      securityContext:
+        seccompProfile:
+          type: Unconfined
+      ports:
+        - containerPort: 2342
+          hostPort: 2342
+      envFrom:
+        - configMapRef:
+            name: photoprism-settings
+      env:
+        - name: PHOTOPRISM_DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: photoprism-secrets
+              key: DB_PASSWORD
+        - name: PHOTOPRISM_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: photoprism-secrets
+              key: PHOTOPRISM_ADMIN_PASSWORD
+      volumeMounts:
+        - name: photo-originals
+          mountPath: /photoprism/originals
+        - name: photo-import
+          mountPath: /photoprism/import
+        - name: photo-storage
+          mountPath: /photoprism/storage
+
+  # --- Volume Definitions (Host Paths) ---
+  volumes:
+    - name: mysql-data
+      hostPath:
+        path: /var/lib/photoprism/database
+        type: Directory
+    - name: photo-originals
+      hostPath:
+        path: /var/lib/photoprism/data/originals
+        type: Directory
+    - name: photo-import
+      hostPath:
+        path: /var/lib/photoprism/data/import
+        type: Directory
+    - name: photo-storage
+      hostPath:
+        path: /var/lib/photoprism/data/storage
+        type: Directory
+
+---
+# mariadb settings
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mariadb-settings
+data:
+  MARIADB_AUTO_UPGRADE: "1"
+  MARIADB_INITDB_SKIP_TZINFO: "1"
+  MARIADB_DATABASE: "photoprism"
+  MARIADB_USER: "photoprism"
+
+---
+# photo prism settings
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: photoprism-settings
+data:
+  # cpnfig options: https://docs.photoprism.app/getting-started/config-options/
+  PHOTOPRISM_ADMIN_USER: "super-admin-user-name"
+  PHOTOPRISM_AUTH_MODE: "password"
+  PHOTOPRISM_SITE_URL: "https://gallery.your-domain.com" # used in generated links and to determine HTTPS/TLS
+  PHOTOPRISM_SITE_TITLE: "title" # site title
+  PHOTOPRISM_LOG_LEVEL: "warn"
+  PHOTOPRISM_READONLY: "false"
+  PHOTOPRISM_DATABASE_DRIVER: "mysql"
+  PHOTOPRISM_DATABASE_SERVER: "localhost:3306"
+  PHOTOPRISM_DETECT_NSFW: "false"
+  PHOTOPRISM_UPLOAD_NSFW: "true"
+  # video transcoding (https://docs.photoprism.app/getting-started/advanced/transcoding/)
+  PHOTOPRISM_FFMPEG_ENCODER: "software" # default: software
+  PHOTOPRISM_FFMPEG_SIZE: "1920" # video size limit in pixels (720-7680) (default: 3840)
+  PHOTOPRISM_FFMPEG_BITRATE: "32" # video bitrate limit in Mbit/s (default: 50)
+  PHOTOPRISM_DATABASE_NAME: "photoprism"
+  PHOTOPRISM_DATABASE_USER: "photoprism"
