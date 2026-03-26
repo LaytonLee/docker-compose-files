@@ -1,0 +1,13 @@
+[Unit]
+Description=Calibre-web Pod Service
+After=network-online.target local-fs.target
+
+[Kube]
+Yaml=/var/lib/calibre/calibre.yaml
+Network=bridge
+
+[Service]
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

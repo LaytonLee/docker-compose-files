@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: calibre-pod
+spec:
+  containers:
+    - name: calibre-web
+      image: lscr.io/linuxserver/calibre-web:latest
+      ports:
+        - containerPort: 8083
+          hostPort: 8083
+          hostIP: 127.0.0.1
+      env:
+        - name: TZ
+          value: "Etc/UTC"
+        - name: DOCKER_MODS
+          value: "linuxserver/mods:universal-calibre"
+      volumeMounts:
+        - name: calibre-config
+          mountPath: /config
+        - name: calibre-library
+          mountPath: /books
+
+  # --- Volumes ---
+  volumes:
+    - name: calibre-config
+      hostPath:
+        path: "/var/lib/calibre/data/config"
+        type: Directory
+    - name: calibre-library
+      hostPath:
+        path: "/var/lib/calibre/data/library"
+        type: Directory
